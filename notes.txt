@@ -1,0 +1,3 @@
+/register   ==== only for candidates and org ORG_ADMIN
+
+/login,/refresh-token,/otp-verify,/logout ====== for all
