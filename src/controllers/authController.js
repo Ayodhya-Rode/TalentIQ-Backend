@@ -132,7 +132,7 @@ export const verifyOtp = async (req, res) => {
       expiresIn: "7d",
     });
 
-    const updatedUser= await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { email },
       data: { isVerified: true, otp: null, otpExpiry: null },
     });
@@ -157,13 +157,11 @@ export const verifyOtp = async (req, res) => {
       },
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Verification failed",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Verification failed",
+      error: error.message,
+    });
   }
 };
 
@@ -240,7 +238,7 @@ export const login = async (req, res) => {
 };
 
 /**
- * @desc    Refresh access token using refresh token  
+ * @desc    Refresh access token using refresh token
  * @route   POST /api/auth/refresh-token
  * @access  Public
  */
@@ -281,20 +279,18 @@ export const refreshAccessToken = async (req, res) => {
       .status(200)
       .json({ success: true, data: { accessToken: newAccessToken } });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Token refresh failed",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Token refresh failed",
+      error: error.message,
+    });
   }
 };
 
 /**
  * @desc    Logout a user by clearing the refresh token
  * @route   POST /api/auth/logout
- * @access  Public 
+ * @access  Public
  */
 export const logout = async (req, res) => {
   try {
@@ -306,7 +302,9 @@ export const logout = async (req, res) => {
         .json({ success: false, message: "You are already logged out" });
     }
     if (refreshToken) {
-      const decoded = jwt.verify(refreshToken, config.jwt_refresh_secret, { ignoreExpiration: true });
+      const decoded = jwt.verify(refreshToken, config.jwt_refresh_secret, {
+        ignoreExpiration: true,
+      });
       await prisma.user.update({
         where: { id: decoded.id },
         data: { refreshToken: null },
@@ -321,6 +319,154 @@ export const logout = async (req, res) => {
 
     res.status(200).json({ success: true, message: "Logged out successfully" });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Logout failed", error: error.message });
+    res
+      .status(500)
+      .json({ success: false, message: "Logout failed", error: error.message });
+  }
+};
+
+/**
+ * @desc    Forgot password - send reset token to email
+ * @route   POST /api/auth/forgot-password
+ * @access  Public
+ */
+
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Email is required" });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message: `If an account exists for ${email}, a reset link has been sent`,
+      });
+    }
+
+    //create a 15-minute reset token
+    const resetToken = jwt.sign(
+      { id: user.id },
+      config.jwt_reset_password_secret,
+      {
+        expiresIn: "15m",
+      },
+    );
+
+    const resetExpiry = new Date(Date.now() + 15 * 60 * 1000);
+
+    // Store the reset token and its expiry in the database to verify later in reset password endpoint
+    await prisma.user.update({
+      where: { email },
+      data: {
+        resetPasswordToken: resetToken,
+        resetPasswordExpiry: resetExpiry,
+      },
+    });
+
+    await sendEmail({
+      to: user.email,
+      subject: "TalentIQ - Reset your password",
+      htmlContent: `<p>Click the link below to reset your password:</p>
+  <p><a href="${config.frontend_url}/reset-password?token=${resetToken}">Reset Password</a></p>
+  <p>This link expires in 15 minutes.</p>`,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `If an account exists for ${email}, a reset link has been sent`,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Request failed",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Reset password using reset token
+ * @route   POST /api/auth/reset-password
+ * @access  Public
+ */
+
+export const resetPassword = async (req, res) => {
+  try {
+    const { resetToken, newPassword } = req.body;
+
+    if (!resetToken || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Reset token and new password are required",
+      });
+    }
+
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/;
+
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Password must be at least 8 characters long and contain letters, special characters, and numbers",
+      });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(resetToken, config.jwt_reset_password_secret);
+    } catch {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid or expired reset token" });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+
+    if (!user || user.resetPasswordToken !== resetToken) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid or expired reset token" });
+    }
+
+    if (new Date() > user.resetPasswordExpiry) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Reset token has expired" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetPasswordToken: null, // clear token so it can't be reused (single-use)
+        resetPasswordExpiry: null, // clear expiry along with the token
+        refreshToken: null, // clear refresh token to force re-login after password reset
+      },
+    });
+
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: false,
+      sameSite: "strict",
+    });
+    res.status(200).json({
+      success: true,
+      message: "Password reset successfully. Please log in again.",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Password reset failed",
+      error: error.message,
+    });
   }
 };
