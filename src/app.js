@@ -3,10 +3,14 @@ import cors from "cors";
 import authRoutes from "./routes/authRoutes.js";
 import cookieParser from "cookie-parser";
 import organizationRoutes from "./routes/organizationRoutes.js";
+import config from "./config/config.js"
 
 const app = express();
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: config.frontend_url,
+  credentials: true,
+}));
 app.use(cookieParser())
 
 app.get("/", (req, res) => {
