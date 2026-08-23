@@ -32,6 +32,28 @@ model User {
   refreshToken String?
   resetPasswordToken  String?
   resetPasswordExpiry DateTime?
+  organization Organization?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+
+
+enum OrgStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+model Organization {
+  id        Int       @id @default(autoincrement())
+  name      String
+  industry  String
+  logo      String?
+  status    OrgStatus @default(PENDING)
+  adminId   Int       @unique
+  admin     User      @relation(fields: [adminId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
