@@ -30,7 +30,8 @@ export const register = async (req, res) => {
       });
     }
 
-    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/;
+    const passwordRegex =
+      /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
 
     if (!passwordRegex.test(password)) {
       return res.status(400).json({
@@ -48,8 +49,54 @@ export const register = async (req, res) => {
         message: "Invalid role.",
       });
     }
-    const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Check if the email is already registered
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+
+    // If the user exists and is unverified 
+    if (existingUser) {
+      // If the user exists but is not verified, we can allow them to re-register and send a new OTP
+      if (existingUser.isVerified) {
+        return res.status(409).json({
+          success: false,
+          message: "Email already registered",
+        });
+      }
+
+      // unverified user exists, check if the OTP is still valid (within 24 hours of creation)
+      const hoursSinceCreated =
+        (Date.now() - existingUser.createdAt.getTime()) / 36e5;
+
+      if (hoursSinceCreated > 24) {
+        // Too old — delete stale row, fall through to fresh create below
+        await prisma.user.delete({ where: { email } });
+      } else {
+        // Recent unverified — regenerate OTP + update password/role
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+        const user = await prisma.user.update({
+          where: { email },
+          data: { password: hashedPassword, role, otp, otpExpiry },
+        });
+
+        await sendEmail({
+          to: user.email,
+          subject: "TalentIQ - Verify your email",
+          htmlContent: `<p>Your OTP is <b>${otp}</b>. It expires in 10 minutes.</p>`,
+        });
+
+        return res.status(200).json({
+          success: true,
+          message: "OTP resent to email for verification.",
+          data: { id: user.id, email: user.email, role: user.role },
+        });
+      }
+    }
+
+    // Fresh user (either new email, or old stale row just deleted above)
+    const hashedPassword = await bcrypt.hash(password, 10);
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
@@ -302,13 +349,21 @@ export const logout = async (req, res) => {
         .json({ success: false, message: "You are already logged out" });
     }
     if (refreshToken) {
-      const decoded = jwt.verify(refreshToken, config.jwt_refresh_secret, {
-        ignoreExpiration: true,
-      });
-      await prisma.user.update({
-        where: { id: decoded.id },
-        data: { refreshToken: null },
-      });
+      try {
+        const decoded = jwt.verify(refreshToken, config.jwt_refresh_secret, {
+          ignoreExpiration: true,
+        });
+        await prisma.user.update({
+          where: { id: decoded.id },
+          data: { refreshToken: null },
+        });
+      } catch (error) {
+        // If the token is invalid or expired, we can still clear the cookie and respond with success
+        console.error(
+          "Error verifying refresh token during logout:",
+          error.message,
+        );
+      }
     }
 
     res.clearCookie("refreshToken", {
@@ -408,7 +463,8 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/;
+    const passwordRegex =
+      /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
 
     if (!passwordRegex.test(newPassword)) {
       return res.status(400).json({
