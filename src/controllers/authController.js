@@ -599,3 +599,26 @@ export const resetPassword = async (req, res) => {
     });
   }
 };
+
+/**
+ * @desc    Get currently logged-in user's details
+ * @route   GET /api/auth/me
+ * @access  Private (requires valid accessToken)
+ */
+export const getMe = async (req, res) => {
+  try {
+    // req.user is set by your auth middleware after verifying the accessToken
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: { user: { id: user.id, email: user.email, role: user.role } },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to fetch user", error: error.message });
+  }
+};
