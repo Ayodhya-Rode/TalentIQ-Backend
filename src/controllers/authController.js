@@ -181,7 +181,7 @@ export const verifyOtp = async (req, res) => {
 
     const updatedUser = await prisma.user.update({
       where: { email },
-      data: { isVerified: true, otp: null, otpExpiry: null },
+      data: { isVerified: true, otp: null, otpExpiry: null, refreshToken },
     });
 
     res.cookie("refreshToken", refreshToken, {
@@ -207,6 +207,79 @@ export const verifyOtp = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Verification failed",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Resend OTP for email verification
+ * @route   POST /api/auth/resend-otp
+ * @access  Public
+ */
+
+export const resendOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is already verified",
+      });
+    }
+
+    const otp = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
+
+    const otpExpiry = new Date(
+      Date.now() + 10 * 60 * 1000
+    );
+
+    await prisma.user.update({
+      where: { email },
+      data: {
+        otp,
+        otpExpiry,
+      },
+    });
+
+    await sendEmail({
+      to: user.email,
+      subject: "TalentIQ - Verify your email",
+      htmlContent: `
+        <p>Your new OTP is <b>${otp}</b>.</p>
+        <p>This OTP expires in 10 minutes.</p>
+      `,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "OTP resent successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to resend OTP",
       error: error.message,
     });
   }
