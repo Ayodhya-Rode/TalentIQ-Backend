@@ -33,6 +33,7 @@ model User {
   resetPasswordToken  String?
   resetPasswordExpiry DateTime?
   organization Organization?
+  candidateProfile CandidateProfile?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -56,4 +57,49 @@ model Organization {
   admin     User      @relation(fields: [adminId], references: [id])
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+}
+
+model CandidateProfile {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fullName  String?
+  phone     String?
+  skills    String[] @default([])
+  bio       String?
+  resumeUrl String?
+
+  education    Education[]
+  certificates Certificate[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Education {
+  id                 Int              @id @default(autoincrement())
+  candidateProfileId Int
+  candidateProfile   CandidateProfile @relation(fields: [candidateProfileId], references: [id], onDelete: Cascade)
+
+  institution  String
+  degree       String
+  fieldOfStudy String?
+  startYear    Int
+  endYear      Int?
+
+  createdAt DateTime @default(now())
+}
+
+model Certificate {
+  id                 Int              @id @default(autoincrement())
+  candidateProfileId Int
+  candidateProfile   CandidateProfile @relation(fields: [candidateProfileId], references: [id], onDelete: Cascade)
+
+  name          String
+  issuer        String
+  issueDate     DateTime?
+  credentialUrl String?
+
+  createdAt DateTime @default(now())
 }

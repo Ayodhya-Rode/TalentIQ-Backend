@@ -53,7 +53,7 @@ export const register = async (req, res) => {
     // Check if the email is already registered
     const existingUser = await prisma.user.findUnique({ where: { email } });
 
-    // If the user exists and is unverified 
+    // If the user exists and is unverified
     if (existingUser) {
       // If the user exists but is not verified, we can allow them to re-register and send a new OTP
       if (existingUser.isVerified) {
@@ -184,6 +184,13 @@ export const verifyOtp = async (req, res) => {
       data: { isVerified: true, otp: null, otpExpiry: null, refreshToken },
     });
 
+    // Auto-create empty candidate profile only for candidates
+    if (updatedUser.role === "CANDIDATE") {
+      await prisma.candidateProfile.create({
+        data: { userId: updatedUser.id },
+      });
+    }
+
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: false,
@@ -247,13 +254,9 @@ export const resendOtp = async (req, res) => {
       });
     }
 
-    const otp = Math.floor(
-      100000 + Math.random() * 900000
-    ).toString();
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    const otpExpiry = new Date(
-      Date.now() + 10 * 60 * 1000
-    );
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
     await prisma.user.update({
       where: { email },
@@ -611,7 +614,9 @@ export const getMe = async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
 
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
     res.status(200).json({
@@ -619,6 +624,12 @@ export const getMe = async (req, res) => {
       data: { user: { id: user.id, email: user.email, role: user.role } },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Failed to fetch user", error: error.message });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Failed to fetch user",
+        error: error.message,
+      });
   }
 };

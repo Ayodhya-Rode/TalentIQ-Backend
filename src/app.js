@@ -4,6 +4,8 @@ import authRoutes from "./routes/authRoutes.js";
 import cookieParser from "cookie-parser";
 import organizationRoutes from "./routes/organizationRoutes.js";
 import config from "./config/config.js"
+import candidateRoutes from "./routes/candidateRoutes.js";
+
 
 const app = express();
 app.use(express.json());
@@ -19,7 +21,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/organizations", organizationRoutes);
-
+app.use("/api/candidates", candidateRoutes);
 
 
 
