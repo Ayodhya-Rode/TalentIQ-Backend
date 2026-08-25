@@ -323,6 +323,15 @@ export const login = async (req, res) => {
         .json({ success: false, message: "Please verify your email first" });
     }
 
+    let isReactivated = false;
+    if (!user.isActive) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { isActive: true },
+      });
+      isReactivated = true;
+    }
+
     const accessToken = jwt.sign(
       { id: user.id, role: user.role },
       config.jwt_access_secret,
@@ -624,12 +633,78 @@ export const getMe = async (req, res) => {
       data: { user: { id: user.id, email: user.email, role: user.role } },
     });
   } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch user",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Deactivate the currently logged-in user's account
+ * @route   POST /api/auth/deactivate-account
+ * @access  Private (requires valid accessToken)
+ */
+export const deactivateAccount = async (req, res) => {
+  try {
+     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+
+    if (!user.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "Account is already deactivated",
+      });
+    }
+    
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { isActive: false, refreshToken: null },
+    });
+
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: false,
+      sameSite: "strict",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Account deactivated. Log in again anytime to reactivate.",
+    });
+  } catch (error) {
     res
       .status(500)
       .json({
         success: false,
-        message: "Failed to fetch user",
+        message: "Failed to deactivate account",
         error: error.message,
       });
+  }
+};
+
+/**
+ * @desc    Delete the currently logged-in user's account
+ * @route   POST /api/auth/delete-account
+ * @access  Private (requires valid accessToken)
+ */
+export const deleteAccount = async (req, res) => {
+  try {
+    await prisma.user.delete({
+      where: { id: req.user.id },
+    });
+
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: false,
+      sameSite: "strict",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Account deleted permanently.",
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to delete account", error: error.message });
   }
 };

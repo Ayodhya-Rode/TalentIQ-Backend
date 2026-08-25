@@ -30,6 +30,10 @@ export const getMyProfile = async (req, res) => {
  */
 export const updateMyProfile = async (req, res) => {
   try {
+    if (!req.user.isActive) {
+      return res.status(403).json({ success: false, message: "Reactivate your account (log in again) to edit your profile" });
+    }
+    
     const { fullName, phone, skills, bio } = req.body;
 
     const profile = await prisma.candidateProfile.update({
