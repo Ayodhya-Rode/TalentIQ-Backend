@@ -62,7 +62,7 @@ export const uploadResume = async (req, res) => {
 
     const profile = await prisma.candidateProfile.update({
       where: { userId: req.user.id },
-      data: { resumeUrl: result.secure_url },
+      data: { resumeUrl: result },
     });
 
     res.status(200).json({ success: true, message: "Resume uploaded", data: { resumeUrl: profile.resumeUrl } });
