@@ -70,9 +70,12 @@ model CandidateProfile {
   skills    String[] @default([])
   bio       String?
   resumeUrl String?
+  profileImage String?
 
   education    Education[]
   certificates Certificate[]
+  location String?
+  projects Project[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -101,6 +104,19 @@ model Certificate {
   issuer        String
   issueDate     DateTime?
   credentialUrl String?
+
+  createdAt DateTime @default(now())
+}
+
+model Project {
+  id                 Int              @id @default(autoincrement())
+  candidateProfileId Int
+  candidateProfile   CandidateProfile @relation(fields: [candidateProfileId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  techStack   String[] @default([])
+  link        String?
 
   createdAt DateTime @default(now())
 }

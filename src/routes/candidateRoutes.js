@@ -4,6 +4,7 @@ import {
   getMyProfile,
   updateMyProfile,
   uploadResume,
+  uploadProfileImage,
 } from "../controllers/candidateController.js";
 
 import { protect } from "../middlewares/authMiddleware.js";
@@ -13,5 +14,10 @@ const router = express.Router();
 router.get("/profile", protect, getMyProfile);
 router.patch("/profile", protect, updateMyProfile);
 router.post("/profile/resume", protect, upload.single("resume"), uploadResume);
-
+router.post(
+  "/profile/image",
+  protect,
+  upload.single("profileImage"),
+  uploadProfileImage,
+);
 export default router;
