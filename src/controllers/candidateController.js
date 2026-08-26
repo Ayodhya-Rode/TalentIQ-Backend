@@ -65,6 +65,9 @@ export const updateMyProfile = async (req, res) => {
       education,
       certifications,
       projects,
+      portfolioUrl,
+      githubUrl,
+      linkedinUrl,
     } = req.body;
 
     const existingProfile = await prisma.candidateProfile.findUnique({
@@ -74,7 +77,16 @@ export const updateMyProfile = async (req, res) => {
     const profile = await prisma.$transaction(async (tx) => {
       await tx.candidateProfile.update({
         where: { userId: req.user.id },
-        data: { fullName, phone, skills, bio, location },
+        data: {
+          fullName,
+          phone,
+          skills,
+          bio,
+          location,
+          portfolioUrl,
+          githubUrl,
+          linkedinUrl,
+        },
       });
 
       await tx.education.deleteMany({
