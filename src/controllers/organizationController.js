@@ -159,3 +159,86 @@ export const getOrganizationById = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to fetch organization", error: error.message });
   }
 };
+
+/**
+ * Get the organization belonging to the logged-in ORG_ADMIN.
+ * @route GET /api/organizations/my-organization
+ * @access ORG_ADMIN
+ */
+export const getMyOrganization = async (req, res) => {
+  try {
+    const org = await prisma.organization.findUnique({
+      where: { adminId: req.user.id },
+      select: {
+        id: true,
+        name: true,
+        industry: true,
+        status: true,
+        logo: true,
+        createdAt: true,
+      },
+    });
+
+    if (!org) {
+      return res.status(404).json({ success: false, message: "No organization registered yet" });
+    }
+
+    res.status(200).json({ success: true, data: org });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to fetch organization", error: error.message });
+  }
+};
+
+/**
+ * Update the organization belonging to the logged-in ORG_ADMIN.
+ * @route PATCH /api/organizations/my-organization
+ * @access ORG_ADMIN
+ */
+export const updateOrganization = async (req, res) => {
+  try {
+    const { name, industry } = req.body;
+    const userId = req.user.id;
+
+    const existing = await prisma.organization.findUnique({ where: { adminId: userId } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: "No organization found to update" });
+    }
+
+    const data = {};
+    if (name) data.name = name;
+    if (industry) data.industry = industry;
+
+    if (req.file) {
+      const fileBuffer = req.file.buffer;
+      data.logo = await uploadToCloudinary(fileBuffer, "talentiq/org_logos");
+    }
+
+    const org = await prisma.organization.update({ where: { adminId: userId }, data });
+
+    res.status(200).json({ success: true, message: "Organization updated", data: org });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Update failed", error: error.message });
+  }
+};
+
+/**
+ * Delete the organization belonging to the logged-in ORG_ADMIN.
+ * @route DELETE /api/organizations/my-organization
+ * @access ORG_ADMIN
+ */
+export const deleteOrganization = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const existing = await prisma.organization.findUnique({ where: { adminId: userId } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: "No organization found to delete" });
+    }
+
+    await prisma.organization.delete({ where: { adminId: userId } });
+
+    res.status(200).json({ success: true, message: "Organization deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Delete failed", error: error.message });
+  }
+};

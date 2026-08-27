@@ -6,7 +6,10 @@ import {
   rejectOrganization,
   suspendOrganization,
   activateOrganization,
-  getOrganizationById
+  getOrganizationById,
+  getMyOrganization,
+  updateOrganization,   
+  deleteOrganization,
 } from "../controllers/organizationController.js";
 import { protect, authorize } from "../middlewares/authMiddleware.js";
 import upload from "../middlewares/uploadMiddleware.js";
@@ -15,6 +18,9 @@ import upload from "../middlewares/uploadMiddleware.js";
 const router = express.Router();
 
 router.post("/register", protect, authorize("ORG_ADMIN"), upload.single("logo"), registerOrganization);
+router.get("/my-organization", protect, authorize("ORG_ADMIN"), getMyOrganization);
+router.patch("/my-organization", protect, authorize("ORG_ADMIN"), upload.single("logo"), updateOrganization); 
+router.delete("/my-organization", protect, authorize("ORG_ADMIN"), deleteOrganization); 
 router.get("/get-all-organizations", protect, authorize("SUPER_ADMIN"), getAllOrganizations);
 router.patch("/:id/approve", protect, authorize("SUPER_ADMIN"), approveOrganization);
 router.patch("/:id/reject", protect, authorize("SUPER_ADMIN"), rejectOrganization);
