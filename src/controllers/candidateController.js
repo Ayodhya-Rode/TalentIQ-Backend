@@ -1,5 +1,7 @@
 import prisma from "../config/db.js";
 import { uploadToCloudinary } from "../utils/uploadToCloudinary.js";
+import groq from "../utils/groqClient.js";
+import { buildResumePrompt } from "../utils/buildResumePrompt.js";
 
 /**
  * Get the profile of the currently authenticated candidate
@@ -226,6 +228,71 @@ export const uploadProfileImage = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Profile image upload failed",
+      error: error.message,
+    });
+  }
+};
+
+
+
+/**
+ * Generate AI resume content for the currently authenticated candidate
+ * @route POST /api/candidate/resume/generate
+ * @access Private
+ */
+export const generateResume = async (req, res) => {
+  try {
+    const { targetRole } = req.body;
+
+    if (!targetRole || !targetRole.trim()) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Target role is required" });
+    }
+
+    const profile = await prisma.candidateProfile.findUnique({
+      where: { userId: req.user.id },
+      include: { education: true, certificates: true, projects: true },
+    });
+
+    if (!profile) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Profile not found" });
+    }
+
+    const { systemPrompt, userPrompt } = buildResumePrompt(profile, targetRole);
+
+    const completion = await groq.chat.completions.create({
+      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.4,
+      response_format: { type: "json_object" },
+    });
+
+    const raw = completion.choices[0]?.message?.content;
+    let generated;
+    try {
+      generated = JSON.parse(raw);
+    } catch (parseErr) {
+      return res.status(502).json({
+        success: false,
+        message: "AI returned an unparseable response",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Resume content generated",
+      data: { resume: generated, targetRole, profile },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Resume generation failed",
       error: error.message,
     });
   }

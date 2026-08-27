@@ -12,8 +12,10 @@ const requiredEnvVars = [
   "FRONTEND_URL",
   "CLOUDINARY_CLOUD_NAME",
   "CLOUDINARY_API_KEY",
-  "CLOUDINARY_API_SECRET"
+  "CLOUDINARY_API_SECRET",
+  "GROQ_API_KEY"
 ];
+console.log(process.env.GROQ_API_KEY);
 
 // Checks all required variables are present in the environment
 requiredEnvVars.forEach((key) => {
@@ -34,7 +36,8 @@ const config = {
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET
-  }
+  },
+  groq_api_key: process.env.GROQ_API_KEY
 };
 
 export default config;

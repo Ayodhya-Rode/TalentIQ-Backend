@@ -5,6 +5,7 @@ import {
   updateMyProfile,
   uploadResume,
   uploadProfileImage,
+  generateResume
 } from "../controllers/candidateController.js";
 
 import { protect } from "../middlewares/authMiddleware.js";
@@ -20,4 +21,6 @@ router.post(
   upload.single("profileImage"),
   uploadProfileImage,
 );
+
+router.post("/resume/generate", protect, generateResume);
 export default router;
