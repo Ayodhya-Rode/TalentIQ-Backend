@@ -50,6 +50,7 @@ export const getAllOrganizations = async (req, res) => {
         name: true,
         industry: true,
         status: true,
+        logo:true,
         createdAt: true,
         admin: { select: { email: true } },
       },
@@ -125,5 +126,36 @@ export const activateOrganization = async (req, res) => {
     res.status(200).json({ success: true, message: "Organization activated", data: org });
   } catch (error) {
     res.status(500).json({ success: false, message: "Activation failed", error: error.message });
+  }
+};
+
+
+/**
+ * Get a single organization by ID. Only SUPER_ADMIN can fetch a single organization.
+ * @route GET /api/organizations/:id
+ * @access SUPER_ADMIN
+ */
+export const getOrganizationById = async (req, res) => {
+  try {
+    const org = await prisma.organization.findUnique({
+      where: { id: Number(req.params.id) },
+      select: {
+        id: true,
+        name: true,
+        industry: true,
+        status: true,
+        logo: true,
+        createdAt: true,
+        admin: { select: { email: true } },
+      },
+    });
+
+    if (!org) {
+      return res.status(404).json({ success: false, message: "Organization not found" });
+    }
+
+    res.status(200).json({ success: true, data: org });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to fetch organization", error: error.message });
   }
 };

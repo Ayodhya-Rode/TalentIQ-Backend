@@ -6,6 +6,7 @@ import {
   rejectOrganization,
   suspendOrganization,
   activateOrganization,
+  getOrganizationById
 } from "../controllers/organizationController.js";
 import { protect, authorize } from "../middlewares/authMiddleware.js";
 import upload from "../middlewares/uploadMiddleware.js";
@@ -19,4 +20,5 @@ router.patch("/:id/approve", protect, authorize("SUPER_ADMIN"), approveOrganizat
 router.patch("/:id/reject", protect, authorize("SUPER_ADMIN"), rejectOrganization);
 router.patch("/:id/suspend", protect, authorize("SUPER_ADMIN"), suspendOrganization);
 router.patch("/:id/activate", protect, authorize("SUPER_ADMIN"), activateOrganization);
+router.get("/:id", protect, authorize("SUPER_ADMIN"), getOrganizationById);
 export default router;

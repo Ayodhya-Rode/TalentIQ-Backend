@@ -15,7 +15,6 @@ const requiredEnvVars = [
   "CLOUDINARY_API_SECRET",
   "GROQ_API_KEY"
 ];
-console.log(process.env.GROQ_API_KEY);
 
 // Checks all required variables are present in the environment
 requiredEnvVars.forEach((key) => {
