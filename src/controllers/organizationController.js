@@ -1,5 +1,9 @@
 import prisma from "../config/db.js";
 import { uploadToCloudinary } from "../utils/uploadToCloudinary.js";
+import jwt from "jsonwebtoken";
+import config from "../config/config.js";
+import { sendEmail } from "../utils/sendEmail.js";
+import bcrypt from "bcryptjs";
 
 /**
  * Register a new organization. Only ORG_ADMIN can register an organization. The organization will be pending approval by SUPER_ADMIN.
@@ -240,5 +244,192 @@ export const deleteOrganization = async (req, res) => {
     res.status(200).json({ success: true, message: "Organization deleted" });
   } catch (error) {
     res.status(500).json({ success: false, message: "Delete failed", error: error.message });
+  }
+};
+
+
+/**
+ * Invite a Recruiter or Interviewer into the logged-in Org Admin's organization.
+ * Org must be APPROVED. Org derived from req.user.id, never from request body.
+ * @route POST /api/organizations/team-members
+ * @access ORG_ADMIN
+ */
+export const inviteTeamMember = async (req, res) => {
+  try {
+    const { name, email, role } = req.body;
+
+    if (!name || !email || !role) {
+      return res.status(400).json({ success: false, message: "Name, email and role are required" });
+    }
+
+    if (!["RECRUITER", "INTERVIEWER"].includes(role)) {
+      return res.status(400).json({ success: false, message: "Role must be RECRUITER or INTERVIEWER" });
+    }
+
+    // org derived from logged-in admin's own token — never from body
+    const org = await prisma.organization.findUnique({ where: { adminId: req.user.id } });
+    if (!org) {
+      return res.status(404).json({ success: false, message: "No organization found for this admin" });
+    }
+    if (org.status !== "APPROVED") {
+      return res.status(403).json({ success: false, message: "Organization must be approved before inviting team members" });
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return res.status(409).json({ success: false, message: "A user with this email already exists" });
+    }
+
+    // create pending user first (need the id to sign the token)
+    const pendingUser = await prisma.user.create({
+      data: {
+        email,
+        role,
+        isVerified: false,
+        memberOrgId: org.id,
+      },
+    });
+
+    const inviteToken = jwt.sign(
+      { id: pendingUser.id, role },
+      config.jwt_reset_password_secret, // reusing existing secret, same as reset-password tokens
+      { expiresIn: "48h" }
+    );
+    const inviteExpiry = new Date(Date.now() + 48 * 60 * 60 * 1000);
+
+    await prisma.user.update({
+      where: { id: pendingUser.id },
+      data: { inviteToken, inviteExpiry },
+    });
+
+    await sendEmail({
+      to: email,
+      subject: `TalentIQ - You've been invited as ${role === "RECRUITER" ? "a Recruiter" : "an Interviewer"}`,
+      htmlContent: `<p>Hi ${name},</p>
+<p>You've been invited to join <strong>${org.name}</strong> on TalentIQ as a <strong>${role}</strong>.</p>
+<p><a href="${config.frontend_url}/accept-invite?token=${inviteToken}">Accept Invite & Set Password</a></p>
+<p>This link expires in 48 hours.</p>`,
+    });
+
+    res.status(201).json({ success: true, message: "Invite sent", data: { id: pendingUser.id, email, role } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to send invite", error: error.message });
+  }
+};
+
+/**
+ * Verify an invite token is valid before showing the accept-invite form.
+ * @route GET /api/organizations/verify-invite?token=xxxx
+ * @access Public
+ */
+export const verifyInvite = async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token) {
+      return res.status(400).json({ success: false, message: "Invite token is required" });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, config.jwt_reset_password_secret);
+    } catch {
+      return res.status(400).json({ success: false, message: "Invalid or expired invite" });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      include: { memberOrg: { select: { name: true } } },
+    });
+
+    if (!user || user.inviteToken !== token) {
+      return res.status(400).json({ success: false, message: "Invalid or expired invite" });
+    }
+    if (new Date() > user.inviteExpiry) {
+      return res.status(400).json({ success: false, message: "Invite has expired" });
+    }
+    if (user.isVerified) {
+      return res.status(400).json({ success: false, message: "This invite has already been accepted" });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: { email: user.email, role: user.role, orgName: user.memberOrg?.name },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to verify invite", error: error.message });
+  }
+};
+
+/**
+ * Accept an invite — set password, activate account, auto-login.
+ * @route POST /api/organizations/accept-invite
+ * @access Public
+ */
+export const acceptInvite = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ success: false, message: "Token and password are required" });
+    }
+
+    const passwordRegex =
+      /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters long and contain letters, special characters, and numbers",
+      });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, config.jwt_reset_password_secret);
+    } catch {
+      return res.status(400).json({ success: false, message: "Invalid or expired invite" });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+    if (!user || user.inviteToken !== token) {
+      return res.status(400).json({ success: false, message: "Invalid or expired invite" });
+    }
+    if (new Date() > user.inviteExpiry) {
+      return res.status(400).json({ success: false, message: "Invite has expired" });
+    }
+    if (user.isVerified) {
+      return res.status(400).json({ success: false, message: "This invite has already been accepted" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const accessToken = jwt.sign({ id: user.id, role: user.role }, config.jwt_access_secret, { expiresIn: "15m" });
+    const refreshToken = jwt.sign({ id: user.id }, config.jwt_refresh_secret, { expiresIn: "7d" });
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        isVerified: true,
+        inviteToken: null,      // single-use — cleared same as reset token
+        inviteExpiry: null,
+        refreshToken,
+      },
+    });
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Invite accepted, welcome to TalentIQ",
+      accessToken,
+      data: { id: user.id, email: user.email, role: user.role },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to accept invite", error: error.message });
   }
 };

@@ -10,6 +10,9 @@ import {
   getMyOrganization,
   updateOrganization,   
   deleteOrganization,
+  inviteTeamMember,
+  verifyInvite, 
+  acceptInvite
 } from "../controllers/organizationController.js";
 import { protect, authorize } from "../middlewares/authMiddleware.js";
 import upload from "../middlewares/uploadMiddleware.js";
@@ -22,9 +25,14 @@ router.get("/my-organization", protect, authorize("ORG_ADMIN"), getMyOrganizatio
 router.patch("/my-organization", protect, authorize("ORG_ADMIN"), upload.single("logo"), updateOrganization); 
 router.delete("/my-organization", protect, authorize("ORG_ADMIN"), deleteOrganization); 
 router.get("/get-all-organizations", protect, authorize("SUPER_ADMIN"), getAllOrganizations);
+router.post("/team-members", protect, authorize("ORG_ADMIN"), inviteTeamMember);
+router.get("/verify-invite", verifyInvite);   // public — no protect/authorize
+router.post("/accept-invite", acceptInvite);  // public — no protect/authorize
 router.patch("/:id/approve", protect, authorize("SUPER_ADMIN"), approveOrganization);
 router.patch("/:id/reject", protect, authorize("SUPER_ADMIN"), rejectOrganization);
 router.patch("/:id/suspend", protect, authorize("SUPER_ADMIN"), suspendOrganization);
 router.patch("/:id/activate", protect, authorize("SUPER_ADMIN"), activateOrganization);
 router.get("/:id", protect, authorize("SUPER_ADMIN"), getOrganizationById);
+
+
 export default router;

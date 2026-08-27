@@ -24,7 +24,7 @@ enum Role {
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
-  password  String
+  password  String?
   role      Role
   isVerified Boolean  @default(false)
   otp        String?
@@ -35,6 +35,10 @@ model User {
   organization Organization?
   candidateProfile CandidateProfile?
   isActive Boolean @default(true)
+  inviteToken  String?  @unique   
+  inviteExpiry DateTime?              
+  memberOrgId  Int?                      
+  memberOrg    Organization? @relation("OrgMembers", fields: [memberOrgId], references: [id]) 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -56,6 +60,7 @@ model Organization {
   status    OrgStatus @default(PENDING)
   adminId   Int       @unique
   admin     User      @relation(fields: [adminId], references: [id])
+  members   User[]    @relation("OrgMembers")
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }

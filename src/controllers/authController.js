@@ -309,6 +309,15 @@ export const login = async (req, res) => {
         .status(401)
         .json({ success: false, message: "Invalid credentials" });
     }
+    if (!user.password) {
+      return res
+        .status(403)
+        .json({
+          success: false,
+          message:
+            "Account not activated. Check your email for the invite link.",
+        });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
@@ -648,7 +657,7 @@ export const getMe = async (req, res) => {
  */
 export const deactivateAccount = async (req, res) => {
   try {
-     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
 
     if (!user.isActive) {
       return res.status(400).json({
@@ -656,7 +665,7 @@ export const deactivateAccount = async (req, res) => {
         message: "Account is already deactivated",
       });
     }
-    
+
     await prisma.user.update({
       where: { id: req.user.id },
       data: { isActive: false, refreshToken: null },
@@ -673,13 +682,11 @@ export const deactivateAccount = async (req, res) => {
       message: "Account deactivated. Log in again anytime to reactivate.",
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to deactivate account",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Failed to deactivate account",
+      error: error.message,
+    });
   }
 };
 
@@ -705,6 +712,12 @@ export const deleteAccount = async (req, res) => {
       message: "Account deleted permanently.",
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Failed to delete account", error: error.message });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Failed to delete account",
+        error: error.message,
+      });
   }
 };
