@@ -40,6 +40,7 @@ model User {
   inviteExpiry DateTime?              
   memberOrgId  Int?                      
   memberOrg    Organization? @relation("OrgMembers", fields: [memberOrgId], references: [id]) 
+  jobs Job[] @relation("RecruiterJobs")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -62,6 +63,7 @@ model Organization {
   adminId   Int       @unique
   admin     User      @relation(fields: [adminId], references: [id])
   members   User[]    @relation("OrgMembers")
+  jobs Job[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
@@ -127,4 +129,42 @@ model Project {
   link        String?
 
   createdAt DateTime @default(now())
+}
+
+enum JobStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CLOSED
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+}
+
+model Job {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String
+  department  String?
+  employmentType EmploymentType
+  location    String?
+  isRemote    Boolean   @default(false)
+  status      JobStatus @default(PENDING_APPROVAL)
+
+  previousSnapshot Json?     // holds old field values while an edit awaits re-approval; cleared on approve
+
+  rejectionReason String?    // set by Org Admin on reject, shown to Recruiter
+
+  recruiterId Int
+  recruiter   User         @relation("RecruiterJobs", fields: [recruiterId], references: [id])
+
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
