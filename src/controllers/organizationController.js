@@ -433,3 +433,25 @@ export const acceptInvite = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to accept invite", error: error.message });
   }
 };
+
+/**
+ * Get the org a Recruiter/Interviewer belongs to (via memberOrgId).
+ * @route GET /api/organizations/my-membership
+ * @access RECRUITER, INTERVIEWER
+ */
+export const getMyMembership = async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      include: { memberOrg: true },
+    });
+
+    if (!user || !user.memberOrg) {
+      return res.status(404).json({ success: false, message: "No organization membership found" });
+    }
+
+    res.status(200).json({ success: true, data: user.memberOrg });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to fetch organization", error: error.message });
+  }
+};

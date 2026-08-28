@@ -12,7 +12,8 @@ import {
   deleteOrganization,
   inviteTeamMember,
   verifyInvite, 
-  acceptInvite
+  acceptInvite,
+  getMyMembership
 } from "../controllers/organizationController.js";
 import { protect, authorize } from "../middlewares/authMiddleware.js";
 import upload from "../middlewares/uploadMiddleware.js";
@@ -28,6 +29,8 @@ router.get("/get-all-organizations", protect, authorize("SUPER_ADMIN"), getAllOr
 router.post("/team-members", protect, authorize("ORG_ADMIN"), inviteTeamMember);
 router.get("/verify-invite", verifyInvite);   // public — no protect/authorize
 router.post("/accept-invite", acceptInvite);  // public — no protect/authorize
+router.get("/my-membership", protect, authorize("RECRUITER", "INTERVIEWER"), getMyMembership);
+
 router.patch("/:id/approve", protect, authorize("SUPER_ADMIN"), approveOrganization);
 router.patch("/:id/reject", protect, authorize("SUPER_ADMIN"), rejectOrganization);
 router.patch("/:id/suspend", protect, authorize("SUPER_ADMIN"), suspendOrganization);
