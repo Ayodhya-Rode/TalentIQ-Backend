@@ -41,6 +41,7 @@ model User {
   memberOrgId  Int?                      
   memberOrg    Organization? @relation("OrgMembers", fields: [memberOrgId], references: [id]) 
   jobs Job[] @relation("RecruiterJobs")
+  applications Application[] @relation("CandidateApplications")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -164,7 +165,31 @@ model Job {
 
   organizationId Int
   organization   Organization @relation(fields: [organizationId], references: [id])
+  applications Application[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ApplicationStatus {
+  APPLIED
+  UNDER_REVIEW
+  SHORTLISTED
+  REJECTED
+}
+
+model Application {
+  id         Int               @id @default(autoincrement())
+  status     ApplicationStatus @default(APPLIED)
+  coverNote  String?
+
+  candidateId Int
+  candidate   User    @relation("CandidateApplications", fields: [candidateId], references: [id])
+
+  jobId Int
+  job   Job    @relation(fields: [jobId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([candidateId, jobId])
 }

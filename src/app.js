@@ -6,6 +6,7 @@ import organizationRoutes from "./routes/organizationRoutes.js";
 import config from "./config/config.js"
 import candidateRoutes from "./routes/candidateRoutes.js";
 import jobRoutes from "./routes/jobRoutes.js";
+import applicationRoutes from "./routes/applicationRoutes.js";
 
 const app = express();
 app.use(express.json());
@@ -23,7 +24,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/organizations", organizationRoutes);
 app.use("/api/candidates", candidateRoutes);
 app.use("/api/jobs", jobRoutes);
-
+app.use("/api/applications", applicationRoutes);
 
 
 
