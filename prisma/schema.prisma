@@ -27,6 +27,7 @@ model User {
   password  String?
   role      Role
   isVerified Boolean  @default(false)
+  deactivatedByAdmin Boolean @default(false)  
   otp        String?
   otpExpiry  DateTime?
   refreshToken String?

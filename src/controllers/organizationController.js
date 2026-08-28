@@ -435,6 +435,70 @@ export const acceptInvite = async (req, res) => {
 };
 
 /**
+ * Deactivate a Recruiter/Interviewer belonging to the logged-in Org Admin's org.
+ * @route PATCH /api/organizations/team-members/:id/deactivate
+ * @access ORG_ADMIN
+ */
+export const deactivateTeamMember = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const org = await prisma.organization.findUnique({ where: { adminId: req.user.id } });
+    if (!org) {
+      return res.status(404).json({ success: false, message: "No organization found for this admin" });
+    }
+
+    const targetUser = await prisma.user.findUnique({ where: { id: Number(id) } });
+    if (!targetUser || targetUser.memberOrgId !== org.id) {
+      return res.status(404).json({ success: false, message: "Team member not found in your organization" });
+    }
+
+    if (!["RECRUITER", "INTERVIEWER"].includes(targetUser.role)) {
+      return res.status(400).json({ success: false, message: "Only Recruiter/Interviewer accounts can be deactivated" });
+    }
+
+    await prisma.user.update({
+      where: { id: targetUser.id },
+      data: { isActive: false, deactivatedByAdmin: true, refreshToken: null },
+    });
+
+    res.status(200).json({ success: true, message: "Team member deactivated" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to deactivate", error: error.message });
+  }
+};
+
+/**
+ * Reactivate a Recruiter/Interviewer belonging to the logged-in Org Admin's org.
+ * @route PATCH /api/organizations/team-members/:id/activate
+ * @access ORG_ADMIN
+ */
+export const activateTeamMember = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const org = await prisma.organization.findUnique({ where: { adminId: req.user.id } });
+    if (!org) {
+      return res.status(404).json({ success: false, message: "No organization found for this admin" });
+    }
+
+    const targetUser = await prisma.user.findUnique({ where: { id: Number(id) } });
+    if (!targetUser || targetUser.memberOrgId !== org.id) {
+      return res.status(404).json({ success: false, message: "Team member not found in your organization" });
+    }
+
+    await prisma.user.update({
+      where: { id: targetUser.id },
+      data: { isActive: true, deactivatedByAdmin: false },
+    });
+
+    res.status(200).json({ success: true, message: "Team member activated" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to activate", error: error.message });
+  }
+};
+
+/**
  * Get the org a Recruiter/Interviewer belongs to (via memberOrgId).
  * @route GET /api/organizations/my-membership
  * @access RECRUITER, INTERVIEWER
@@ -453,5 +517,37 @@ export const getMyMembership = async (req, res) => {
     res.status(200).json({ success: true, data: user.memberOrg });
   } catch (error) {
     res.status(500).json({ success: false, message: "Failed to fetch organization", error: error.message });
+  }
+};
+
+
+/**
+ * List all Recruiters/Interviewers belonging to the logged-in Org Admin's org.
+ * @route GET /api/organizations/team-members
+ * @access ORG_ADMIN
+ */
+export const getTeamMembers = async (req, res) => {
+  try {
+    const org = await prisma.organization.findUnique({ where: { adminId: req.user.id } });
+    if (!org) {
+      return res.status(404).json({ success: false, message: "No organization found for this admin" });
+    }
+
+    const members = await prisma.user.findMany({
+      where: { memberOrgId: org.id },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+        isVerified: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    res.status(200).json({ success: true, data: members });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to fetch team members", error: error.message });
   }
 };
