@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import config from "../config/config.js";
 import { sendEmail } from "../utils/sendEmail.js";
 import bcrypt from "bcryptjs";
+import { uploadToImageKit } from "../utils/uploadToImageKit.js";
 
 /**
  * Register a new organization. Only ORG_ADMIN can register an organization. The organization will be pending approval by SUPER_ADMIN.
@@ -27,8 +28,9 @@ export const registerOrganization = async (req, res) => {
     let logoUrl = null;
     if (req.file) {
       const fileBuffer = req.file.buffer;
-      logoUrl = await uploadToCloudinary(fileBuffer, "talentiq/org_logos");
-    }
+      logoUrl = await uploadToImageKit(fileBuffer, "talentiq/org_logos", req.file.originalname);
+      // logoUrl = await uploadToCloudinary(fileBuffer, "talentiq/org_logos");
+    } 
 
     const org = await prisma.organization.create({
       data: { name, industry, logo:logoUrl, adminId: userId },
@@ -214,7 +216,8 @@ export const updateOrganization = async (req, res) => {
 
     if (req.file) {
       const fileBuffer = req.file.buffer;
-      data.logo = await uploadToCloudinary(fileBuffer, "talentiq/org_logos");
+       data.logo = await uploadToImageKit(fileBuffer, "talentiq/org_logos", req.file.originalname);
+      // data.logo = await uploadToCloudinary(fileBuffer, "talentiq/org_logos");
     }
 
     const org = await prisma.organization.update({ where: { adminId: userId }, data });

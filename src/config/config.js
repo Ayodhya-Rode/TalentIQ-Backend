@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
+import ImageKit from "imagekit";
 
 // Required environment variables list
 const requiredEnvVars = [
@@ -13,9 +14,11 @@ const requiredEnvVars = [
   "CLOUDINARY_CLOUD_NAME",
   "CLOUDINARY_API_KEY",
   "CLOUDINARY_API_SECRET",
-  "GROQ_API_KEY"
+  "GROQ_API_KEY",
+   "IMAGEKIT_PUBLIC_KEY",
+  "IMAGEKIT_PRIVATE_KEY",
+  "IMAGEKIT_URL_ENDPOINT",
 ];
-
 // Checks all required variables are present in the environment
 requiredEnvVars.forEach((key) => {
   if (!process.env[key]) {
@@ -36,7 +39,12 @@ const config = {
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET
   },
-  groq_api_key: process.env.GROQ_API_KEY
+  groq_api_key: process.env.GROQ_API_KEY,
+  imagekit: new ImageKit({
+    publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
+    privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+    urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
+  }),
 };
 
 export default config;

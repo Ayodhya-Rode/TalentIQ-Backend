@@ -2,7 +2,7 @@ import prisma from "../config/db.js";
 import { uploadToCloudinary } from "../utils/uploadToCloudinary.js";
 import groq from "../utils/groqClient.js";
 import { buildResumePrompt } from "../utils/buildResumePrompt.js";
-
+import { uploadToImageKit } from "../utils/uploadToImageKit.js";
 /**
  * Get the profile of the currently authenticated candidate
  * @route GET /api/candidate/profile
@@ -159,11 +159,45 @@ export const updateMyProfile = async (req, res) => {
   }
 };
 
+export const uploadProfileImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Profile image is required",
+      });
+    }
+
+    const result = await uploadToImageKit(
+      req.file.buffer,
+      "talentiq/profile-images",
+      req.file.originalname,
+    );
+
+    const profile = await prisma.candidateProfile.update({
+      where: { userId: req.user.id },
+      data: { profileImage: result },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Profile image uploaded",
+      data: { profileImage: profile.profileImage },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Profile image upload failed",
+      error: error.message,
+    });
+  }
+};
 /**
  * Upload a resume for the currently authenticated candidate
  * @route POST /api/candidate/resume
  * @access Private
  */
+
 export const uploadResume = async (req, res) => {
   try {
     if (!req.file) {
@@ -172,9 +206,10 @@ export const uploadResume = async (req, res) => {
         .json({ success: false, message: "Resume file is required" });
     }
 
-    const result = await uploadToCloudinary(
+    const result = await uploadToImageKit(
       req.file.buffer,
       "talentiq/resumes",
+      req.file.originalname,
     );
 
     const profile = await prisma.candidateProfile.update({
@@ -195,45 +230,6 @@ export const uploadResume = async (req, res) => {
     });
   }
 };
-
-export const uploadProfileImage = async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "Profile image is required",
-      });
-    }
-
-    const result = await uploadToCloudinary(
-      req.file.buffer,
-      "talentiq/profile-images",
-    );
-
-    const profile = await prisma.candidateProfile.update({
-      where: { userId: req.user.id },
-      data: {
-        profileImage: result,
-      },
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Profile image uploaded",
-      data: {
-        profileImage: profile.profileImage,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Profile image upload failed",
-      error: error.message,
-    });
-  }
-};
-
-
 
 /**
  * Generate AI resume content for the currently authenticated candidate
@@ -290,6 +286,9 @@ export const generateResume = async (req, res) => {
       data: { resume: generated, targetRole, profile },
     });
   } catch (error) {
+    console.error("❌ Resume generation error:", error);
+    console.error("Message:", error.message);
+    console.error("Response:", error.response?.data);
     res.status(500).json({
       success: false,
       message: "Resume generation failed",
