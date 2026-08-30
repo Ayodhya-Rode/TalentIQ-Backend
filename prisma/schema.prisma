@@ -42,6 +42,12 @@ model User {
   memberOrg    Organization? @relation("OrgMembers", fields: [memberOrgId], references: [id]) 
   jobs Job[] @relation("RecruiterJobs")
   applications Application[] @relation("CandidateApplications")
+  domains          Domain[]            @default([])
+  availabilitySlots AvailabilitySlot[]
+  candidateBookings InterviewBooking[] @relation("CandidateBookings")
+  empBookings       InterviewBooking[] @relation("EmpBookings")
+  cancellations BookingCancellation[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -65,6 +71,7 @@ model Organization {
   admin     User      @relation(fields: [adminId], references: [id])
   members   User[]    @relation("OrgMembers")
   jobs Job[]
+  interviewBookings InterviewBooking[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
@@ -192,4 +199,78 @@ model Application {
   updatedAt DateTime @updatedAt
 
   @@unique([candidateId, jobId])
+}
+
+enum Domain {
+  FULL_STACK
+  DATA_SCIENCE
+  DEVOPS
+  JAVA_DEVELOPER
+  AI_ENGINEER
+  FRONTEND
+  BACKEND
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+model AvailabilitySlot {
+  id        Int       @id @default(autoincrement())
+  dayOfWeek DayOfWeek
+  startTime String    // "10:00" 24hr format
+  endTime   String    // "13:00"
+
+  empId Int
+  emp   User @relation(fields: [empId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+enum BookingStatus {
+  PENDING_PAYMENT
+  ASSIGNED
+  NEEDS_ATTENTION
+  COMPLETED
+  CANCELLED
+}
+
+model InterviewBooking {
+  id       Int    @id @default(autoincrement())
+  domain   Domain
+  status   BookingStatus @default(PENDING_PAYMENT)
+
+  scheduledDate DateTime
+
+  candidateId Int
+  candidate   User @relation("CandidateBookings", fields: [candidateId], references: [id])
+
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  assignedEmpId Int?
+  assignedEmp   User? @relation("EmpBookings", fields: [assignedEmpId], references: [id])
+
+  reassignCount Int @default(0)
+  @@unique([assignedEmpId, scheduledDate])
+  cancellations BookingCancellation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+model BookingCancellation {
+  id        Int      @id @default(autoincrement())
+  bookingId Int
+  booking   InterviewBooking @relation(fields: [bookingId], references: [id])
+  empId     Int
+  emp       User @relation(fields: [empId], references: [id])
+  createdAt DateTime @default(now())
 }
