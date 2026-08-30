@@ -379,3 +379,28 @@ export const getFlaggedEmps = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to fetch flagged emps", error: error.message });
   }
 };
+
+export const getMyAssignedBookings = async (req, res) => {
+  try {
+    const bookings = await prisma.interviewBooking.findMany({
+      where: { assignedEmpId: req.user.id, status: "ASSIGNED" },
+      orderBy: { scheduledDate: "asc" },
+    });
+    res.status(200).json({ success: true, data: bookings });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to fetch bookings", error: error.message });
+  }
+};
+
+export const getMyBookings = async (req, res) => {
+  try {
+    const bookings = await prisma.interviewBooking.findMany({
+      where: { candidateId: req.user.id },
+      include: { organization: { select: { name: true } } },
+      orderBy: { scheduledDate: "desc" },
+    });
+    res.status(200).json({ success: true, data: bookings });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to fetch bookings", error: error.message });
+  }
+};

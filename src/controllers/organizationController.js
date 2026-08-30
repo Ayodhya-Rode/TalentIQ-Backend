@@ -554,3 +554,21 @@ export const getTeamMembers = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to fetch team members", error: error.message });
   }
 };
+
+
+/**
+ * Public list of APPROVED organizations, for candidates picking a company to book with.
+ * @route GET /api/organizations/approved
+ * @access Public
+ */
+export const getApprovedOrganizations = async (req, res) => {
+  try {
+    const orgs = await prisma.organization.findMany({
+      where: { status: "APPROVED" },
+      select: { id: true, name: true, industry: true, logo: true },
+    });
+    res.status(200).json({ success: true, data: orgs });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to fetch organizations", error: error.message });
+  }
+};

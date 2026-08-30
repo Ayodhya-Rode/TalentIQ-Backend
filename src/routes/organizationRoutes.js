@@ -16,7 +16,8 @@ import {
   getMyMembership,
   deactivateTeamMember,
   activateTeamMember,
-  getTeamMembers
+  getTeamMembers,
+  getApprovedOrganizations
 } from "../controllers/organizationController.js";
 import { protect, authorize } from "../middlewares/authMiddleware.js";
 import upload from "../middlewares/uploadMiddleware.js";
@@ -37,7 +38,7 @@ router.get("/my-membership", protect, authorize("RECRUITER", "INTERVIEWER"), get
 router.patch("/team-members/:id/deactivate", protect, authorize("ORG_ADMIN"), deactivateTeamMember);
 router.patch("/team-members/:id/activate", protect, authorize("ORG_ADMIN"), activateTeamMember);
 router.get("/team-members", protect, authorize("ORG_ADMIN"), getTeamMembers);
-
+router.get("/approved", getApprovedOrganizations);
 router.patch("/:id/approve", protect, authorize("SUPER_ADMIN"), approveOrganization);
 router.patch("/:id/reject", protect, authorize("SUPER_ADMIN"), rejectOrganization);
 router.patch("/:id/suspend", protect, authorize("SUPER_ADMIN"), suspendOrganization);
