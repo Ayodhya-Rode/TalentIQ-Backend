@@ -23,6 +23,7 @@
     "groq-sdk": "^1.6.0",
     "imagekit": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
+    "livekit-server-sdk": "^2.18.0",
     "multer": "^2.2.0",
     "pg": "^8.23.0",
     "razorpay": "^2.9.8"

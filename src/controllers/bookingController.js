@@ -1,8 +1,8 @@
 import prisma from "../config/db.js";
-
 import razorpay from "../config/razorpay.js";
 import crypto from "crypto";
 import config from "../config/config.js";
+import { RoomServiceClient, AccessToken } from "livekit-server-sdk";
 
 const LOOKAHEAD_DAYS = 14;
 const dayNameToIndex = {
@@ -448,6 +448,8 @@ export const createPaymentOrder = async (req, res) => {
  * @access CANDIDATE
  */
 
+const roomService = new RoomServiceClient(config.livekitUrl, config.livekitApiKey, config.livekitApiSecret);
+
 export const verifyPayment = async (req, res) => {
   try {
     const { bookingId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
@@ -462,13 +464,43 @@ export const verifyPayment = async (req, res) => {
       return res.status(400).json({ success: false, message: "Payment verification failed" });
     }
 
+    const roomName = `booking-${bookingId}`;
+    await roomService.createRoom({ name: roomName });
+
     const booking = await prisma.interviewBooking.update({
       where: { id: Number(bookingId) },
-      data: { status: "ASSIGNED" },
+      data: { status: "ASSIGNED", videoRoomUrl: roomName },
     });
 
     res.status(200).json({ success: true, message: "Payment verified", data: booking });
   } catch (error) {
+    console.log("verify payment :", error);
     res.status(500).json({ success: false, message: "Failed to verify payment", error: error.message });
+  }
+};
+
+
+export const getVideoToken = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    const booking = await prisma.interviewBooking.findUnique({ where: { id: Number(bookingId) } });
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Booking not found" });
+    }
+    if (booking.candidateId !== req.user.id && booking.assignedEmpId !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Not part of this interview" });
+    }
+
+    const at = new AccessToken(config.livekitApiKey, config.livekitApiSecret, {
+      identity: `user-${req.user.id}`,
+    });
+    at.addGrant({ room: booking.videoRoomUrl, roomJoin: true, canPublish: true, canSubscribe: true });
+
+    const token = await at.toJwt();
+
+    res.status(200).json({ success: true, data: { token, wsUrl: config.livekitUrl, roomName: booking.videoRoomUrl } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to generate token", error: error.message });
   }
 };
