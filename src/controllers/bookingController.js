@@ -504,3 +504,24 @@ export const getVideoToken = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to generate token", error: error.message });
   }
 };
+
+
+export const cancelPendingBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const booking = await prisma.interviewBooking.findUnique({ where: { id: Number(id) } });
+    if (!booking || booking.candidateId !== req.user.id) {
+      return res.status(404).json({ success: false, message: "Booking not found" });
+    }
+    if (booking.status !== "PENDING_PAYMENT") {
+      return res.status(400).json({ success: false, message: "Cannot cancel this booking" });
+    }
+    await prisma.interviewBooking.update({
+      where: { id: booking.id },
+      data: { status: "CANCELLED", assignedEmpId: null },
+    });
+    res.status(200).json({ success: true, message: "Booking cancelled" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to cancel", error: error.message });
+  }
+};

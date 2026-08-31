@@ -10,7 +10,8 @@ import {
   getMyBookings,
   createPaymentOrder,
   verifyPayment,
-  getVideoToken
+  getVideoToken,
+  cancelPendingBooking,
 } from "../controllers/bookingController.js";
 import { protect, authorize } from "../middlewares/authMiddleware.js";
 
@@ -27,4 +28,5 @@ router.get("/mine", protect, authorize("CANDIDATE"), getMyBookings);
 router.post("/create-payment-order", protect, authorize("CANDIDATE"), createPaymentOrder);
 router.post("/verify-payment", protect, authorize("CANDIDATE"), verifyPayment);
 router.get("/:bookingId/video-token", protect, authorize("CANDIDATE", "RECRUITER", "INTERVIEWER"), getVideoToken);
+router.patch("/:id/cancel-pending", protect, authorize("CANDIDATE"), cancelPendingBooking);
 export default router;
