@@ -261,6 +261,7 @@ model InterviewBooking {
   @@unique([assignedEmpId, scheduledDate])
   cancellations BookingCancellation[]
   videoRoomUrl String?
+  reminderSent Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -3,6 +3,7 @@ import razorpay from "../config/razorpay.js";
 import crypto from "crypto";
 import config from "../config/config.js";
 import { RoomServiceClient, AccessToken } from "livekit-server-sdk";
+import { sendEmail } from "../utils/sendEmail.js";
 
 const LOOKAHEAD_DAYS = 14;
 const dayNameToIndex = {
@@ -523,5 +524,80 @@ export const cancelPendingBooking = async (req, res) => {
     res.status(200).json({ success: true, message: "Booking cancelled" });
   } catch (error) {
     res.status(500).json({ success: false, message: "Failed to cancel", error: error.message });
+  }
+};
+
+/**
+ * Auto-cancel PENDING_PAYMENT bookings older than 15 minutes.
+ * Frees the emp+slot for others when a candidate abandons payment
+ * without ever closing the Razorpay popup (dead device, dropped network, closed tab).
+ */
+export const cleanupAbandonedBookings = async () => {
+  try {
+    const cutoff = new Date(Date.now() - 15 * 60 * 1000);
+    const result = await prisma.interviewBooking.updateMany({
+      where: { status: "PENDING_PAYMENT", createdAt: { lt: cutoff } },
+      data: { status: "CANCELLED", assignedEmpId: null },
+    });
+    if (result.count > 0) {
+      console.log(`Cleaned up ${result.count} abandoned booking(s)`);
+    }
+  } catch (error) {
+    console.error("Cleanup job failed:", error);
+  }
+};
+
+/**
+ * Send a one-time reminder email ~10 minutes before an interview,
+ * to both candidate and assigned emp. Runs on the same cron cycle.
+ */
+export const sendUpcomingReminders = async () => {
+  try {
+    const now = new Date();
+    const windowStart = new Date(now.getTime() + 5 * 60 * 1000);  // 5 min from now
+    const windowEnd = new Date(now.getTime() + 15 * 60 * 1000);   // 15 min from now
+
+    const bookings = await prisma.interviewBooking.findMany({
+      where: {
+        status: "ASSIGNED",
+        reminderSent: false,
+        scheduledDate: { gte: windowStart, lte: windowEnd },
+      },
+      include: {
+        candidate: { select: { email: true } },
+        assignedEmp: { select: { email: true } },
+        organization: { select: { name: true } },
+      },
+    });
+
+    for (const booking of bookings) {
+      const timeStr = booking.scheduledDate.toLocaleString();
+      const joinLink = `${config.frontend_url}/interview/${booking.id}`;
+
+      await sendEmail({
+        to: booking.candidate.email,
+        subject: "Your mock interview starts in 10 minutes",
+        htmlContent: `<p>Your ${booking.domain.replace("_", " ")} mock interview with ${booking.organization.name} starts at ${timeStr}.</p><p><a href="${joinLink}">Join here</a></p>`,
+      });
+
+      if (booking.assignedEmp) {
+        await sendEmail({
+          to: booking.assignedEmp.email,
+          subject: "Interview starts in 10 minutes",
+          htmlContent: `<p>Your assigned mock interview (${booking.domain.replace("_", " ")}) starts at ${timeStr}.</p><p><a href="${joinLink}">Join here</a></p>`,
+        });
+      }
+
+      await prisma.interviewBooking.update({
+        where: { id: booking.id },
+        data: { reminderSent: true },
+      });
+    }
+
+    if (bookings.length > 0) {
+      console.log(`Sent reminders for ${bookings.length} booking(s)`);
+    }
+  } catch (error) {
+    console.error("Reminder job failed:", error);
   }
 };

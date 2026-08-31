@@ -9,6 +9,7 @@ import jobRoutes from "./routes/jobRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
 import availabilityRoutes from "./routes/availabilityRoutes.js";
 import bookingRoutes from "./routes/bookingRoutes.js";
+import { startBookingCleanupJob } from "./jobs/bookingCleanupJob.js";
 
 const app = express();
 app.use(express.json());
@@ -30,5 +31,5 @@ app.use("/api/applications", applicationRoutes);
 app.use("/api/availability", availabilityRoutes);
 app.use("/api/bookings", bookingRoutes);
 
-
+startBookingCleanupJob();
 export default app;
