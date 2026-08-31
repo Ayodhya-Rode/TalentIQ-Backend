@@ -8,6 +8,8 @@ import {
   getFlaggedEmps,
   getMyAssignedBookings,
   getMyBookings,
+  createPaymentOrder,
+  verifyPayment
 } from "../controllers/bookingController.js";
 import { protect, authorize } from "../middlewares/authMiddleware.js";
 
@@ -21,4 +23,6 @@ router.patch("/:id/emp-cancel", protect, authorize("RECRUITER", "INTERVIEWER"), 
 router.patch("/:id/reschedule", protect, authorize("CANDIDATE"), rescheduleBooking);
 router.get("/my-assigned", protect, authorize("RECRUITER", "INTERVIEWER"), getMyAssignedBookings);
 router.get("/mine", protect, authorize("CANDIDATE"), getMyBookings);
+router.post("/create-payment-order", protect, authorize("CANDIDATE"), createPaymentOrder);
+router.post("/verify-payment", protect, authorize("CANDIDATE"), verifyPayment);
 export default router;

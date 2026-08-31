@@ -18,6 +18,8 @@ const requiredEnvVars = [
    "IMAGEKIT_PUBLIC_KEY",
   "IMAGEKIT_PRIVATE_KEY",
   "IMAGEKIT_URL_ENDPOINT",
+  "RAZORPAY_KEY_ID",
+  "RAZORPAY_KEY_SECRET"
 ];
 // Checks all required variables are present in the environment
 requiredEnvVars.forEach((key) => {
@@ -45,6 +47,8 @@ const config = {
     privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
     urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
   }),
+  razorpayKeyId: process.env.RAZORPAY_KEY_ID,
+  razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET,
 };
 
 export default config;

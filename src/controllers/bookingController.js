@@ -1,5 +1,9 @@
 import prisma from "../config/db.js";
 
+import razorpay from "../config/razorpay.js";
+import crypto from "crypto";
+import config from "../config/config.js";
+
 const LOOKAHEAD_DAYS = 14;
 const dayNameToIndex = {
   SUNDAY: 0, MONDAY: 1, TUESDAY: 2, WEDNESDAY: 3,
@@ -163,7 +167,7 @@ export const createBooking = async (req, res) => {
             candidateId: req.user.id,
             organizationId: Number(organizationId),
             assignedEmpId: empId,
-            status: "ASSIGNED",
+            status: "PENDING_PAYMENT",
           },
         });
         return res.status(201).json({ success: true, message: "Booking created", data: booking });
@@ -402,5 +406,69 @@ export const getMyBookings = async (req, res) => {
     res.status(200).json({ success: true, data: bookings });
   } catch (error) {
     res.status(500).json({ success: false, message: "Failed to fetch bookings", error: error.message });
+  }
+};
+
+
+const INTERVIEW_PRICE_PAISE = 5000; // ₹50
+
+/**
+ * Candidate creates a Razorpay payment order for a booking that is pending payment.
+ * @route POST /api/bookings/payment-order
+ * @access CANDIDATE
+ */
+export const createPaymentOrder = async (req, res) => {
+  try {
+    const { bookingId } = req.body;
+
+    const booking = await prisma.interviewBooking.findUnique({ where: { id: Number(bookingId) } });
+    if (!booking || booking.candidateId !== req.user.id) {
+      return res.status(404).json({ success: false, message: "Booking not found" });
+    }
+    if (booking.status !== "PENDING_PAYMENT") {
+      return res.status(400).json({ success: false, message: "This booking doesn't need payment" });
+    }
+
+    const order = await razorpay.orders.create({
+      amount: INTERVIEW_PRICE_PAISE,
+      currency: "INR",
+      receipt: `booking_${booking.id}`,
+    });
+
+    res.status(200).json({ success: true, data: { orderId: order.id, amount: order.amount, keyId: config.razorpayKeyId } });
+  } catch (error) {
+    console.error("Razorpay order creation error:", error);
+    res.status(500).json({ success: false, message: "Failed to create payment order", error: error.message });
+  }
+};
+
+/**
+ * Candidate verifies the Razorpay payment for a booking.
+ * @route POST /api/bookings/verify-payment
+ * @access CANDIDATE
+ */
+
+export const verifyPayment = async (req, res) => {
+  try {
+    const { bookingId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
+    const expectedSignature = crypto
+      .createHmac("sha256", config.razorpayKeySecret)
+      .update(body)
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({ success: false, message: "Payment verification failed" });
+    }
+
+    const booking = await prisma.interviewBooking.update({
+      where: { id: Number(bookingId) },
+      data: { status: "ASSIGNED" },
+    });
+
+    res.status(200).json({ success: true, message: "Payment verified", data: booking });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to verify payment", error: error.message });
   }
 };
