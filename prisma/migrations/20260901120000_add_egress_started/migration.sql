@@ -1,0 +1,1 @@
+ALTER TABLE "InterviewBooking" ADD COLUMN "egressStarted" BOOLEAN NOT NULL DEFAULT false;

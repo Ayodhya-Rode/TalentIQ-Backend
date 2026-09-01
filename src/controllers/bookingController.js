@@ -4,6 +4,7 @@ import crypto from "crypto";
 import config from "../config/config.js";
 import { RoomServiceClient, AccessToken } from "livekit-server-sdk";
 import { sendEmail } from "../utils/sendEmail.js";
+import { startRecording, ensureRoomExists } from "../utils/startEgress.js";
 
 const LOOKAHEAD_DAYS = 14;
 const dayNameToIndex = {
@@ -480,7 +481,12 @@ export const verifyPayment = async (req, res) => {
   }
 };
 
-
+/**
+ * Candidate or emp requests a LiveKit token to join the video room for a booking.
+ * If the booking's egress (recording) hasn't started yet, this will also trigger it.
+ * @route GET /api/bookings/:bookingId/video-token
+ * @access CANDIDATE, RECRUITER, INTERVIEWER
+ */
 export const getVideoToken = async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -489,8 +495,22 @@ export const getVideoToken = async (req, res) => {
     if (!booking) {
       return res.status(404).json({ success: false, message: "Booking not found" });
     }
+
     if (booking.candidateId !== req.user.id && booking.assignedEmpId !== req.user.id) {
       return res.status(403).json({ success: false, message: "Not part of this interview" });
+    }
+
+    if (!booking.egressStarted) {
+      try {
+        await ensureRoomExists(booking.videoRoomUrl);
+        await startRecording(booking.videoRoomUrl);
+        await prisma.interviewBooking.update({
+          where: { id: Number(bookingId) },
+          data: { egressStarted: true },
+        });
+      } catch (err) {
+        console.error("Egress failed to start:", err.message);
+      }
     }
 
     const at = new AccessToken(config.livekitApiKey, config.livekitApiSecret, {

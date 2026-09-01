@@ -22,7 +22,12 @@ const requiredEnvVars = [
   "RAZORPAY_KEY_SECRET",
   "LIVEKIT_URL",
   "LIVEKIT_API_KEY",
-  "LIVEKIT_API_SECRET"
+  "LIVEKIT_API_SECRET",
+  "B2_ACCESS_KEY_ID",
+  "B2_SECRET_ACCESS_KEY",
+  "B2_BUCKET_NAME",
+  "B2_ENDPOINT",
+  "B2_REGION",
 ];
 // Checks all required variables are present in the environment
 requiredEnvVars.forEach((key) => {
@@ -55,6 +60,13 @@ const config = {
   livekitApiKey: process.env.LIVEKIT_API_KEY,
   livekitApiSecret: process.env.LIVEKIT_API_SECRET,
   livekitUrl: process.env.LIVEKIT_URL,
+  b2: {
+    bucketAccessKeyId: process.env.B2_ACCESS_KEY_ID,
+    bucketSecretAccessKey: process.env.B2_SECRET_ACCESS_KEY,
+    bucketName: process.env.B2_BUCKET_NAME,
+    bucketEndpoint: process.env.B2_ENDPOINT,
+    bucketRegion: process.env.B2_REGION,
+  },
 };
 
 export default config;
