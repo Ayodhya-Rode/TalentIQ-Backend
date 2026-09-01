@@ -263,6 +263,7 @@ model InterviewBooking {
   videoRoomUrl String?
   reminderSent Boolean @default(false)
   egressStarted Boolean @default(false)
+  feedback    InterviewFeedback?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -276,4 +277,15 @@ model BookingCancellation {
   empId     Int
   emp       User @relation(fields: [empId], references: [id])
   createdAt DateTime @default(now())
+}
+
+
+model InterviewFeedback {
+  id          Int      @id @default(autoincrement())
+  bookingId   Int      @unique
+  booking     InterviewBooking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  empId       Int
+  score       Int      // e.g. 1-10 or 1-100, your call
+  feedback    String   @db.Text
+  createdAt   DateTime @default(now())
 }
